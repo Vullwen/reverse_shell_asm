@@ -7,8 +7,8 @@
     ; Socket section
     ;============================
     SYSCALL_SOCKET: .int 41
-    sockaddr_ptr: .string ""
     AF_INET: .int 2
+    SOCK_STREAM: .int 1     ;TCP
     IP_PROTOCOL: .int 0
     ;============================
 
@@ -38,7 +38,7 @@ main:
 create_socket:
     mov rax, SYSCALL_SOCKET
     mov rdi, AF_INET
-    mov rsi, sockaddr_ptr   ; Adresse de la cible
+    mov rsi, SOCK_STREAM
     mov rdx, IP_PROTOCOL
     syscall
 ; ----------------------------------
