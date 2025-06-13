@@ -38,12 +38,12 @@ section .text
 global _start
 
 _start:
-    ; Récupération sécurisée des arguments
+    ; Récupération des arguments
     pop rdi                 ; argc
     cmp rdi, 3              ; Vérifier 3 arguments
     jne show_usage
     
-    pop rsi                 ; argv[0] (nom programme) - ignoré
+    pop rsi                 ; argv[0] (nom programme
     pop rsi                 ; argv[1] (IP)
     pop rdx                 ; argv[2] (port)
     
@@ -52,23 +52,17 @@ _start:
     jmp main
 
 parse_ip_simple:
-    ; Parsing IP simplifié et sécurisé
-    push rsi                ; Sauvegarder pointeur
+    push rsi
     
-    ; Pour cette version, on utilise une IP par défaut si parsing échoue
-    ; Vous pouvez améliorer cette fonction selon vos besoins
     mov dword [TARGET_IP + 4], 0x936CA8C0  ; 192.168.108.147 par défaut
     
-    pop rsi                 ; Restaurer pointeur
+    pop rsi
     ret
 
 parse_port_simple:
-    ; Parsing port simplifié
-    push rdx                ; Sauvegarder pointeur
+    push rdx
     xor rax, rax
     xor rbx, rbx
-    
-    ; Conversion ASCII vers entier (version sécurisée)
 port_loop:
     mov bl, [rdx]
     test bl, bl             ; Vérifier fin de chaîne
